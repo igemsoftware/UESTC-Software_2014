@@ -167,7 +167,7 @@ void onError(const char *msg){
     free(p);
 }
 
-char argv_default[]="{\"specie\":\"Saccharomyces-cerevisiae\",\"length\":17,\"location\":\"NC_001144-chromosome12:1..500\",\"pam\":\"NGG\",\"rfc\":\"100010\"}";
+char argv_default[]="{\"specie\":\"Saccharomyces-cerevisiae\",\"length\":17,\"gene\":\"AAD15\",\"pam\":\"NGG\",\"rfc\":\"100010\"}";
 const char *region_info[]={"","EXON","INTRON","UTR","INTERGENIC"};
 
 localrow *localresult;
@@ -175,6 +175,7 @@ localrow *localresult;
 mos_pthread_mutex_t mutex;
 mos_pthread_mutex_t mutex_mysql_conn;
 mos_sem_t sem_thread;
+mos_sem_t sem_thread_usage;
 
 /**
 Main function. Include Input, output and Database create connect.
@@ -201,9 +202,28 @@ int main(int args,char *argv[]){
 
     localresult=NULL;
 
+    MYSQL_ROW sql_row;
+    my_conn=mysql_init(NULL);
+    my_bool mb=false;
+    mysql_options(my_conn,MYSQL_SECURE_AUTH,&mb);
+#ifdef  _WIN32
+    printf("I don't like WIN32. \n");
+    return 32;
+    if(mysql_real_connect(my_conn,MYSQL_CONF_HOST,MYSQL_CONF_USERNAME,"",MYSQL_CONF_DB,3306,NULL,0)){
+#endif
+#ifdef  __linux
+    if(mysql_real_connect(my_conn,MYSQL_CONF_HOST,MYSQL_CONF_USERNAME,MYSQL_CONF_PASSWD,MYSQL_CONF_DB,3306,NULL,0)){
+#endif
+    }else{
+        sprintf(buffer,"database connect error\n$%s",mysql_error(my_conn));
+        onError(buffer);
+        return -1;
+    }
+
     mos_pthread_mutex_init(&mutex,NULL);
     mos_pthread_mutex_init(&mutex_mysql_conn,NULL);
     mos_sem_init(&sem_thread,0,80);
+    mos_sem_init(&sem_thread_usage,0,0);
 
     char *req_str=argv_default;
     if(args==2) req_str=argv[1];
@@ -231,7 +251,8 @@ int main(int args,char *argv[]){
     int req_gene_start,req_gene_end;
     char req_chromosome[100];
     if(cJSON_temp){
-        int res=get_gene_info(buffer,req_specie,cJSON_temp->valuestring);
+        strcpy(req_gene,cJSON_temp->valuestring);
+        int res=get_gene_info(buffer,req_specie,req_gene);
         if(res){
             onError("Invaild Gene! ");
             return -1;
@@ -277,23 +298,6 @@ int main(int args,char *argv[]){
     At the same time, it reads in ptt file for specie,
     and also open files.
     */
-
-    MYSQL_ROW sql_row;
-    my_conn=mysql_init(NULL);
-
-    my_bool mb=false;
-    mysql_options(my_conn,MYSQL_SECURE_AUTH,&mb);
-#ifdef  _WIN32
-    if(mysql_real_connect(my_conn,MYSQL_CONF_HOST,MYSQL_CONF_USERNAME,"",MYSQL_CONF_DB,3306,NULL,0)){
-#endif
-#ifdef  __linux
-    if(mysql_real_connect(my_conn,MYSQL_CONF_HOST,MYSQL_CONF_USERNAME,MYSQL_CONF_PASSWD,MYSQL_CONF_DB,3306,NULL,0)){
-#endif
-    }else{
-        sprintf(buffer,"database connect error\n$%s",mysql_error(my_conn));
-        onError(buffer);
-        return -1;
-    }
 
     int res;
     sprintf(buffer,"SELECT Sno FROM Table_Specie WHERE SName=\"%s\";",req_specie);
@@ -376,7 +380,7 @@ int main(int args,char *argv[]){
     }
 
     for(i=0;i<ini;i++){
-        if(in_site[i].ntid) mos_pthread_join(in_site[i].ntid,NULL);
+        mos_sem_wait(&sem_thread_usage);
     }
     free_mysqlres_local(localresult);
 

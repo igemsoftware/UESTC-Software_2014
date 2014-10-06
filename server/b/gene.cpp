@@ -13,7 +13,7 @@
 */
 int get_gene_info(char *str,const char *specie_name,const char *gene_name){
     char buffer[1024];
-    sprintf(buffer,"SELECT Chr_Name,gene_Start,gene_end FROM Table_gene as g JOIN Table_chromosome as c ON g.Chr_No=c.Chr_No JOIN Table_Specie as s ON c.Sno=s.Sno WHERE SName='%s' and gene_Name='%s'",specie_name,gene_name);
+    sprintf(buffer,"SELECT Chr_Name,gene_Start,gene_end FROM Table_gene as g JOIN Table_chromosome as c ON g.Chr_No=c.Chr_No JOIN Table_Specie as s ON c.Sno=s.Sno WHERE SName='%s' and gene_Name='%s'; ",specie_name,gene_name);
     int res=mysql_query(my_conn,buffer);
     if(res) return -1;
     MYSQL_RES *result=mysql_store_result(my_conn);
@@ -21,5 +21,6 @@ int get_gene_info(char *str,const char *specie_name,const char *gene_name){
     if((sql_row=mysql_fetch_row(result))){
         sprintf(str,"%s:%s..%s",sql_row[0],sql_row[1],sql_row[2]);
     }
+    mysql_free_result(result);
     return 0;
 }

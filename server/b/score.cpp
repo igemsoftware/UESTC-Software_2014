@@ -167,6 +167,7 @@ void *new_thread(void *args){
     score(thread_share_variables.lr,thread_share_variables.row,thread_share_variables.ini,thread_share_variables.type,thread_share_variables.r1);
     mos_pthread_mutex_unlock(&mutex);
     mos_sem_post(&sem_thread);
+    mos_sem_post(&sem_thread_usage);
     in_site[ini].ntid=0;
     mos_pthread_detach(mos_pthread_self());
     return NULL;
@@ -189,6 +190,7 @@ void create_thread_socre(localrow *lr,localrow row,int ini,int type,double r1){
         printf("Pthread_create error: %s\n",strerror(err));
         mos_pthread_mutex_unlock(&mutex);
         mos_sem_post(&sem_thread);
+        mos_sem_post(&sem_thread_usage);
         return ;
     }
 
